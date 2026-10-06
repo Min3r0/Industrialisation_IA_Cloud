@@ -55,4 +55,4 @@ Pourquoi : c'est la solution la plus simple qui soit **réellement persistante e
 - Pas de sauvegarde automatique : acceptable en dev (données synthétiques), **bloquant pour la prod**.
 - Le jour où l'API passe en multi-instances, cette ADR devra être marquée « Status : Superseded by ADR-000X » et une nouvelle décision (PostgreSQL) écrite, avec une classe `PostgresOrderStore`.
 
-Related: [ADR-0002 — Artefacts du modèle](ADR-0002-stockage-artefacts-modele.md) · [Architecture de l'application](../architecture.md) · [Journal séance 1](../journal/2026-10-06-seance-1.md)
+Related: [ADR-0002 — Artefacts du modèle](ADR-0002-stockage-artefacts-modele.md) · [Architecture de l'application](../architecture.md)

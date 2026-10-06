@@ -67,4 +67,4 @@ Pourquoi : l'option B corrige les deux défauts réels de l'option A (écrasemen
 - Les anciens fichiers à plat de `artifacts/` produits par le notebook restent en place mais ne sont plus lus par l'API.
 - Le jour où MLflow Registry est adopté (séance 4), cette ADR devra être marquée « Status : Superseded by ADR-000X » + nouvelle décision écrite.
 
-Related: [ADR-0001 — Stockage des commandes](ADR-0001-stockage-commandes-clients.md) · [Architecture de l'application](../architecture.md) · [Journal séance 1](../journal/2026-10-06-seance-1.md)
+Related: [ADR-0001 — Stockage des commandes](ADR-0001-stockage-commandes-clients.md) · [Architecture de l'application](../architecture.md)

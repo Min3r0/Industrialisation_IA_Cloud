@@ -28,4 +28,4 @@ pytest
 | `DATABASE_PATH` | `data/orders.db` | Fichier SQLite des commandes (ADR-0001) |
 | `PREDICTION_THRESHOLD` | `0.5` | Seuil de décision |
 
-Documentation : [Architecture](docs/architecture.md) · [ADR-0001](docs/adr/ADR-0001-stockage-commandes-clients.md) · [ADR-0002](docs/adr/ADR-0002-stockage-artefacts-modele.md) · [Journal séance 1](docs/journal/2026-10-06-seance-1.md)
+Documentation : [Architecture](docs/architecture.md) · [ADR-0001](docs/adr/ADR-0001-stockage-commandes-clients.md) · [ADR-0002](docs/adr/ADR-0002-stockage-artefacts-modele.md)

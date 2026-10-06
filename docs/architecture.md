@@ -92,4 +92,4 @@ uvicorn express_delivery.main:app --reload  # http://localhost:8000/docs
 pytest                                      # 34 tests
 ```
 
-Related: [ADR-0001](adr/ADR-0001-stockage-commandes-clients.md) · [ADR-0002](adr/ADR-0002-stockage-artefacts-modele.md) · [Journal séance 1](journal/2026-10-06-seance-1.md)
+Related: [ADR-0001](adr/ADR-0001-stockage-commandes-clients.md) · [ADR-0002](adr/ADR-0002-stockage-artefacts-modele.md)

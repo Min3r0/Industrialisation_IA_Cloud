@@ -5,5 +5,9 @@ __pycache__/
 data/
 mlruns/
 mlflow.db
-.obsidian/workspace.json
-.obsidian/workspace-mobile.json
+
+# Notes personnelles (vault Obsidian), hors dépôt
+docs/journal/
+INDEX.md
+.obsidian/
+.vscode/
