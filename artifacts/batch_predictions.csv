@@ -1,0 +1,11 @@
+hour,day_of_week,weekend,distance_km,order_value_eur,weight_kg,stock_available,preparation_time_min,carrier_capacity,weather,delivery_zone,customer_type,eligibility_probability,express_eligible,decision
+22,5,1,15.44,242.71,6.63,0,26.6,0.81,normal,centre,standard,0.09139767476539014,0,non
+7,1,0,2.56,21.0,15.5,1,51.9,0.9,normal,centre,standard,0.8390438156869454,1,oui
+18,1,0,2.82,93.85,10.39,0,29.3,0.85,pluie,rurale,standard,0.4222992649497011,0,non
+15,5,1,4.74,60.87,17.82,1,52.3,0.48,orage,proche_banlieue,standard,0.4348625995949856,0,non
+14,4,0,9.0,162.93,16.1,1,18.8,0.99,pluie,centre,standard,0.7485086918373467,1,oui
+21,2,0,1.52,232.58,7.5,1,23.4,0.53,normal,banlieue,standard,0.8483192395932964,1,oui
+8,6,1,5.71,43.85,21.63,0,18.1,0.53,normal,proche_banlieue,standard,0.2915741053618264,0,non
+15,4,0,1.84,32.95,16.12,1,32.3,0.29,normal,centre,standard,0.8053296574946314,1,oui
+20,4,0,3.16,140.03,4.23,1,24.2,0.74,pluie,centre,premium,0.8799138712327564,1,oui
+22,0,0,23.63,37.92,10.66,1,8.1,0.94,normal,centre,standard,0.2894991385808828,0,non

@@ -1,0 +1,34 @@
+{
+  "model_version": "1.0.0",
+  "target": "express_eligible",
+  "features": [
+    "hour",
+    "day_of_week",
+    "weekend",
+    "distance_km",
+    "order_value_eur",
+    "weight_kg",
+    "stock_available",
+    "preparation_time_min",
+    "carrier_capacity",
+    "weather",
+    "delivery_zone",
+    "customer_type"
+  ],
+  "numeric_features": [
+    "hour",
+    "day_of_week",
+    "weekend",
+    "distance_km",
+    "order_value_eur",
+    "weight_kg",
+    "stock_available",
+    "preparation_time_min",
+    "carrier_capacity"
+  ],
+  "categorical_features": [
+    "weather",
+    "delivery_zone",
+    "customer_type"
+  ]
+}

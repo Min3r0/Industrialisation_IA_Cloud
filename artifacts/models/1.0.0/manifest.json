@@ -1,0 +1,29 @@
+{
+  "model_version": "1.0.0",
+  "model_type": "Logistic regression",
+  "target": "express_eligible",
+  "features": [
+    "hour",
+    "day_of_week",
+    "weekend",
+    "distance_km",
+    "order_value_eur",
+    "weight_kg",
+    "stock_available",
+    "preparation_time_min",
+    "carrier_capacity",
+    "weather",
+    "delivery_zone",
+    "customer_type"
+  ],
+  "metrics": {
+    "accuracy": 0.7683333333333333,
+    "precision": 0.9304123711340206,
+    "recall": 0.7632135306553911,
+    "f1_score": 0.8385598141695703,
+    "roc_auc": 0.8490369729153835
+  },
+  "trained_at": "2026-10-06T13:26:00.508764+00:00",
+  "sklearn_version": "1.9.1",
+  "sha256": "0c9b7551be5d072e329db21d46020b0e7e8a5d1795c1ba71550f58b46e065b2e"
+}
