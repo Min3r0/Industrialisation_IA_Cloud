@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-SESSION = 1
+SESSION = 2
 CONTRACT = yaml.safe_load((Path(__file__).parents[1] / "openapi.yml").read_text(encoding="utf-8"))
 EXPECTED = [
     (path, method, operation)

@@ -44,8 +44,8 @@ def models_dir(tmp_path_factory) -> Path:
     return directory
 
 
-def _settings(models_dir: Path, tmp_path: Path, version: str = VERSION) -> Settings:
-    return Settings("test", models_dir, version, tmp_path / "orders.db", 0.5)
+def _settings(models_dir: Path, tmp_path: Path, version: str = VERSION, **overrides) -> Settings:
+    return Settings("test", models_dir, version, tmp_path / "orders.db", 0.5, **overrides)
 
 
 @pytest.fixture

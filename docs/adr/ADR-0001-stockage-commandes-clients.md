@@ -12,6 +12,9 @@ status: Accepté
 **Date :** 06/10/2026
 **Séance :** 1
 
+> [!NOTE] Mise à jour séance 2 (09/10/2026)
+> Valable pour l'environnement **dev**. L'hébergement Azure avec déploiement Blue/Green ([ADR-0003](ADR-0003-hebergement-plateforme-deploiement.md), [ADR-0004](ADR-0004-strategie-deploiement-blue-green.md)) impose PostgreSQL en test/prod : une ADR remplacera celle-ci pour ces environnements.
+
 ## Contexte
 
 L'endpoint `POST /v1/orders` du contrat [openapi.yml](../../openapi.yml) doit **persister** chaque commande reçue (via un `OrderStore`) puis répondre immédiatement `202` ; `GET /v1/orders/{order_id}` doit pouvoir la relire. La sonde `/health/ready` doit vérifier que ce stockage est joignable.

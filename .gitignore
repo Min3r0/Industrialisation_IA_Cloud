@@ -6,8 +6,15 @@ data/
 mlruns/
 mlflow.db
 
+# Secrets locaux (ADR-0006) : jamais dans Git
+.env
+.env.*
+
 # Notes personnelles (vault Obsidian), hors dépôt
 docs/journal/
 INDEX.md
 .obsidian/
 .vscode/
+Industrialisation de l’IA dans le cloud #1.pdf
+README.md
+Industrialisation de l’IA dans le cloud #2.pdf

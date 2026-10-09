@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from fastapi import Request
 
 from express_delivery.abstractions.order_store import OrderStore
+from express_delivery.abstractions.rate_limiter import RateLimiter
 from express_delivery.api.errors import ApiError
+from express_delivery.services.auth_service import AuthService
 from express_delivery.services.order_service import OrderService
 from express_delivery.services.prediction_service import PredictionService
 
@@ -18,6 +20,8 @@ class Container:
     order_store: OrderStore
     order_service: OrderService
     prediction_service: PredictionService | None  # None si le modèle n'a pas pu être chargé
+    rate_limiter: RateLimiter
+    auth_service: AuthService | None = None  # None = authentification désactivée (dev)
 
 
 def get_container(request: Request) -> Container:
