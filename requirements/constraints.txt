@@ -1,0 +1,3 @@
+# Contraintes de l'image (ADR-0009)
+# scikit-learn doit être la version qui a entraîné les modèles publiés (manifest.json : sklearn_version)
+scikit-learn==1.9.1

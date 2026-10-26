@@ -1,0 +1,63 @@
+# Exécution locale de l'image de production (ADR-0009).
+#
+#   copier .env.example en .env (facultatif), puis :
+#   docker compose up --build -d
+#   docker compose ps                       # état « healthy » attendu
+#   curl http://127.0.0.1:8000/health/ready
+#   docker compose down                     # -v pour effacer aussi les commandes
+#
+# Le même fichier sert de modèle à la configuration Azure Container Apps (ADR-0003) :
+# image identique, configuration uniquement par variables d'environnement.
+
+name: express-delivery
+
+services:
+  api:
+    build:
+      context: .
+      target: runtime
+      args:
+        APP_VERSION: ${APP_VERSION:-1.0.0}
+        VCS_REF: ${VCS_REF:-local}
+    image: express-delivery:${APP_VERSION:-1.0.0}
+    init: true                         # petit init en PID 1 : relaie les signaux, ramasse les zombies
+
+    # Configuration (12-factor) : valeurs par défaut pour le poste, surchargeables dans .env.
+    # En dev l'image (APP_ENV=prod par défaut) est lancée en mode dev pour garder /docs ;
+    # mettre APP_ENV=prod + API_KEYS dans .env pour reproduire la production.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      MODEL_VERSION: ${MODEL_VERSION:-1.1.0}
+      PREDICTION_THRESHOLD: ${PREDICTION_THRESHOLD:-0.5}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
+
+    ports:
+      - "127.0.0.1:8000:8000"          # publié sur la boucle locale seulement, pas sur le réseau
+
+    volumes:
+      - ./artifacts/models:/models:ro  # modèles versionnés, lecture seule (ADR-0002, ADR-0003)
+      - orders-data:/data              # SQLite des commandes (dev uniquement, ADR-0001)
+
+    # Durcissement à l'exécution
+    read_only: true                    # système de fichiers racine en lecture seule
+    tmpfs:
+      - /tmp:size=16m,mode=1777,noexec,nosuid,nodev
+    cap_drop: [ALL]                    # aucune capacité Linux (le port 8000 n'en demande pas)
+    security_opt:
+      - no-new-privileges:true         # pas d'élévation via setuid/setgid
+    pids_limit: 128
+    mem_limit: 768m
+    cpus: 1.0
+    restart: unless-stopped
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  orders-data:

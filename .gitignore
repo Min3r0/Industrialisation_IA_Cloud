@@ -28,3 +28,6 @@ INDEX.md
 
 # Fichiers en attente de suppression manuelle
 _to_delete/
+
+# Modèle de configuration Docker, versionné (ADR-0009)
+!.env.example
