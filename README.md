@@ -1,18 +1,35 @@
----
-title: API éligibilité livraison express
-date: 2026-10-06
-tags: [readme, fastapi, securite]
----
-
 # API éligibilité livraison express
 
-Industrialisation du notebook `project_test_v1_final_final2.ipynb` (M2 EIA, cours « Industrialisation de l'IA dans le cloud »).
+[![Licence MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
+![Workflow](https://img.shields.io/badge/workflow-Gitflow-orange.svg)
+
+Industrialisation du notebook `project_test_v1_final_final2.ipynb` en une API FastAPI qui prédit si une commande est éligible à la livraison express. Projet réalisé dans le cadre du cours « Industrialisation de l'IA dans le cloud » (Master 2 Expert en Intelligence Artificielle).
+
+- **Contrat d'API** : [`openapi.yml`](openapi.yml)
+- **Architecture** (ports et adaptateurs, SOLID) : [`docs/architecture.md`](docs/architecture.md)
+- **Décisions d'architecture** : [`docs/adr/`](docs/adr)
+
+## Sommaire
+
+- [Démarrage](#démarrage)
+- [Entraînement et suivi MLflow](#entraînement-et-suivi-mlflow-adr-0007)
+- [Clés d'API](#clés-dapi-adr-0006)
+- [Configuration](#configuration-variables-denvironnement)
+- [Organisation du code](#organisation-du-code)
+- [Contribuer](#contribuer)
+- [Sécurité](#sécurité)
+- [Licence](#licence)
 
 ## Démarrage
+
+Prérequis : Python 3.10 ou plus récent, Git.
 
 **Windows (PowerShell)**
 
 ```powershell
+git clone https://github.com/Min3r0/Industrialisation_IA_Cloud.git
+cd Industrialisation_IA_Cloud
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
@@ -24,6 +41,8 @@ uvicorn express_delivery.main:app --reload  # http://localhost:8000/docs
 **Linux / macOS (bash)**
 
 ```bash
+git clone https://github.com/Min3r0/Industrialisation_IA_Cloud.git
+cd Industrialisation_IA_Cloud
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
@@ -44,7 +63,7 @@ python scripts/train.py --version 1.2.0 --no-tracking   # sans MLflow
 mlflow ui --backend-store-uri sqlite:///mlflow.db       # http://localhost:5000
 ```
 
-L'API ne dépend pas de MLflow : elle charge toujours `artifacts/models/$MODEL_VERSION` (ADR-0002).
+L'API ne dépend pas de MLflow : elle charge toujours `artifacts/models/$MODEL_VERSION` ([ADR-0002](docs/adr/ADR-0002-stockage-artefacts-modele.md)).
 
 ## Clés d'API (ADR-0006)
 
@@ -97,4 +116,65 @@ En dev l'authentification est désactivée. Pour la tester localement, en trois 
 | `MLFLOW_TRACKING_URI` | `sqlite:///mlflow.db` | Base de suivi MLflow (entraînement uniquement, ADR-0007) |
 | `MLFLOW_EXPERIMENT_NAME` | `livraison-express` | Expérience MLflow des runs d'entraînement |
 
-Documentation : [Architecture](docs/architecture.md) · [ADR-0001](docs/adr/ADR-0001-stockage-commandes-clients.md) · [ADR-0002](docs/adr/ADR-0002-stockage-artefacts-modele.md) · [ADR-0003 Hébergement](docs/adr/ADR-0003-hebergement-plateforme-deploiement.md) · [ADR-0004 Blue/Green](docs/adr/ADR-0004-strategie-deploiement-blue-green.md) · [ADR-0005 Entrées/sorties](docs/adr/ADR-0005-securite-entrees-sorties.md) · [ADR-0006 Accès à la donnée](docs/adr/ADR-0006-securite-acces-donnee.md) · [ADR-0007 Suivi MLflow](docs/adr/ADR-0007-suivi-experiences-mlflow.md)
+Aucun secret ne doit être écrit dans le code ni commité : utiliser des variables d'environnement (fichiers `.env` ignorés par Git).
+
+## Organisation du code
+
+```text
+src/express_delivery/
+├── domain/          # Objets métier purs (Order, PredictionResult, ModelMetadata, sécurité)
+├── abstractions/    # Ports (ABC) : OrderStore, ModelRepository, ApiKeyStore, RateLimiter, ExperimentTracker
+├── infrastructure/  # Adaptateurs : sqlite, memory, env, filesystem, tracking (MLflow)
+├── ml/              # Données et entraînement, une classe par responsabilité
+├── services/        # Cas d'usage : OrderService, PredictionService, AuthService
+└── api/             # FastAPI : routers, schémas, sécurité, composition root (app.py)
+scripts/             # train.py, create_api_key.py
+tests/               # pytest (unitaires, contrat OpenAPI, intégration MLflow)
+docs/                # architecture.md et ADR
+```
+
+Détails et correspondance cellule du notebook → module : [`docs/architecture.md`](docs/architecture.md).
+
+| ADR | Sujet |
+|---|---|
+| [0001](docs/adr/ADR-0001-stockage-commandes-clients.md) | Stockage des commandes clients |
+| [0002](docs/adr/ADR-0002-stockage-artefacts-modele.md) | Stockage des artefacts du modèle |
+| [0003](docs/adr/ADR-0003-hebergement-plateforme-deploiement.md) | Plateforme de déploiement et hébergement |
+| [0004](docs/adr/ADR-0004-strategie-deploiement-blue-green.md) | Déploiement Blue / Green |
+| [0005](docs/adr/ADR-0005-securite-entrees-sorties.md) | Sécurité des entrées et sorties |
+| [0006](docs/adr/ADR-0006-securite-acces-donnee.md) | Sécurité de l'accès à la donnée |
+| [0007](docs/adr/ADR-0007-suivi-experiences-mlflow.md) | Suivi MLflow et découpage du code ML |
+| [0008](docs/adr/ADR-0008-workflow-git-gitflow.md) | Workflow Git : Gitflow |
+
+## Contribuer
+
+Le dépôt suit **Gitflow** : `main` (versions publiées, taguées `vX.Y.Z`), `develop` (intégration), et des branches `feature/*`, `release/*`, `hotfix/*`.
+
+```mermaid
+gitGraph
+    commit id: "v1.0.0" tag: "v1.0.0"
+    branch develop
+    checkout develop
+    branch feature/ma-fonction
+    checkout feature/ma-fonction
+    commit id: "feat"
+    checkout develop
+    merge feature/ma-fonction
+    branch release/1.1.0
+    checkout release/1.1.0
+    commit id: "version 1.1.0"
+    checkout main
+    merge release/1.1.0 tag: "v1.1.0"
+    checkout develop
+    merge release/1.1.0
+```
+
+Toute contribution passe par une pull request vers `develop`. Lire [CONTRIBUTING.md](CONTRIBUTING.md) avant de commencer et respecter le [Code de conduite](CODE_OF_CONDUCT.md).
+
+## Sécurité
+
+Ne signalez pas une vulnérabilité dans une issue publique : la procédure est décrite dans [SECURITY.md](SECURITY.md).
+
+## Licence
+
+Distribué sous licence MIT : voir [LICENSE](LICENSE).
