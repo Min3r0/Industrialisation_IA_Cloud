@@ -1,7 +1,13 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Données et suivi MLflow générés localement (ADR-0001, ADR-0007)
 data/
 mlruns/
 mlflow.db
@@ -10,11 +16,15 @@ mlflow.db
 .env
 .env.*
 
+# Contenu qui n'appartient pas au projet (non couvert par la licence MIT)
+correction/
+Industrialisation de l’IA dans le cloud*.pdf
+
 # Notes personnelles (vault Obsidian), hors dépôt
 docs/journal/
 INDEX.md
 .obsidian/
 .vscode/
-Industrialisation de l’IA dans le cloud #1.pdf
-README.md
-Industrialisation de l’IA dans le cloud #2.pdf
+
+# Fichiers en attente de suppression manuelle
+_to_delete/
