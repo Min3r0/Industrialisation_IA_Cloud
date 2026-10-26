@@ -39,3 +39,12 @@ def test_tampered_model_is_rejected(models_dir, tmp_path):
         file.write(b"tampered")
     with pytest.raises(ModelNotFoundError, match="SHA-256"):
         FileModelRepository(copy).load(VERSION)
+
+
+def test_exists_reports_published_versions(models_dir):
+    repository = FileModelRepository(models_dir)
+    assert repository.exists(VERSION) and not repository.exists("2.0.0")
+
+
+def test_mlflow_run_id_is_kept_in_manifest(models_dir):
+    assert FileModelRepository(models_dir).load(VERSION).metadata.mlflow_run_id == "run-1"

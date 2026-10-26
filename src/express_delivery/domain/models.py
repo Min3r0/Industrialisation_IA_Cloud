@@ -41,3 +41,4 @@ class ModelMetadata:
     metrics: Mapping[str, float]
     trained_at: str
     sklearn_version: str
+    mlflow_run_id: str | None = None  # run MLflow qui a produit ce modèle (ADR-0007)

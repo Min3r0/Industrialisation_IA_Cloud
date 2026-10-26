@@ -30,6 +30,10 @@ class Settings:
     api_keys: str = ""
     rate_limit_per_minute: int = 60
     expose_docs: bool = True
+    # Entraînement (scripts/train.py) : graine et suivi MLflow (ADR-0007)
+    random_seed: int = 42
+    mlflow_tracking_uri: str = "sqlite:///mlflow.db"
+    mlflow_experiment: str = "livraison-express"
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.prediction_threshold <= 1.0:
@@ -53,4 +57,7 @@ class Settings:
             api_keys=os.getenv("API_KEYS", ""),
             rate_limit_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "60")),
             expose_docs=_env_flag("EXPOSE_DOCS", default=not is_prod),
+            random_seed=int(os.getenv("RANDOM_SEED", "42")),
+            mlflow_tracking_uri=os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"),
+            mlflow_experiment=os.getenv("MLFLOW_EXPERIMENT_NAME", "livraison-express"),
         )

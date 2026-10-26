@@ -13,7 +13,11 @@ from express_delivery.domain.models import ModelMetadata
 from express_delivery.infrastructure.filesystem.model_repository import FileModelRepository
 from express_delivery.infrastructure.memory.order_store import InMemoryOrderStore
 from express_delivery.ml.dataset import clean_orders_data, generate_orders_dataset
-from express_delivery.ml.training import train_and_evaluate
+from express_delivery.ml.evaluator import ModelEvaluator
+from express_delivery.ml.pipeline_factory import PipelineFactory
+from express_delivery.ml.splitter import TrainTestSplitter
+from express_delivery.ml.trainer import ModelTrainer
+from tests.fakes import RecordingExperimentTracker
 
 VERSION = "1.0.0"
 
@@ -32,14 +36,20 @@ HARD_ORDER = {
 }
 
 
+def build_test_trainer(tracker) -> ModelTrainer:
+    return ModelTrainer(PipelineFactory(), TrainTestSplitter(), ModelEvaluator(), tracker)
+
+
 @pytest.fixture(scope="session")
 def models_dir(tmp_path_factory) -> Path:
     directory = tmp_path_factory.mktemp("models")
-    result = train_and_evaluate(clean_orders_data(generate_orders_dataset(n_rows=2000)))
+    data = clean_orders_data(generate_orders_dataset(n_rows=2000))
+    result = build_test_trainer(RecordingExperimentTracker()).train(data)
     FileModelRepository(directory).save(
         result.pipeline,
         ModelMetadata(VERSION, "Logistic regression", TARGET_COLUMN, FEATURE_COLUMNS,
-                      result.metrics, "2026-10-06T00:00:00+00:00", sklearn.__version__),
+                      result.metrics, "2026-10-06T00:00:00+00:00", sklearn.__version__,
+                      mlflow_run_id=result.run_id),
     )
     return directory
 

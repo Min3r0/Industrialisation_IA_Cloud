@@ -20,6 +20,10 @@ class LoadedModel:
 
 class ModelRepository(ABC):
     @abstractmethod
+    def exists(self, version: str) -> bool:
+        """Indique si la version est déjà publiée (vérifié avant d'entraîner)."""
+
+    @abstractmethod
     def load(self, version: str) -> LoadedModel:
         """Charge une version explicite du modèle. Lève ModelNotFoundError."""
 

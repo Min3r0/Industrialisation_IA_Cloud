@@ -11,6 +11,7 @@ status: Accepté
 **Status :** Accepté
 **Date :** 06/10/2026
 **Séance :** 1
+**Complétée par :** [ADR-0007 — Suivi MLflow](ADR-0007-suivi-experiences-mlflow.md) (26/10/2026) : chaque entraînement est tracé dans MLflow, le `run_id` est écrit dans le manifeste ; le modèle servi reste chargé depuis ce dépôt local.
 
 ## Contexte
 
@@ -67,4 +68,4 @@ Pourquoi : l'option B corrige les deux défauts réels de l'option A (écrasemen
 - Les anciens fichiers à plat de `artifacts/` produits par le notebook restent en place mais ne sont plus lus par l'API.
 - Le jour où MLflow Registry est adopté (séance 4), cette ADR devra être marquée « Status : Superseded by ADR-000X » + nouvelle décision écrite.
 
-Related: [ADR-0001 — Stockage des commandes](ADR-0001-stockage-commandes-clients.md) · [Architecture de l'application](../architecture.md)
+Related: [ADR-0001 — Stockage des commandes](ADR-0001-stockage-commandes-clients.md) · [ADR-0007 — Suivi MLflow](ADR-0007-suivi-experiences-mlflow.md) · [Architecture de l'application](../architecture.md)

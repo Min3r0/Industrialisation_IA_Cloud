@@ -16,7 +16,7 @@ Industrialisation du notebook `project_test_v1_final_final2.ipynb` (M2 EIA, cour
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-python scripts/train.py --version 1.0.0     # publie artifacts/models/1.0.0
+python scripts/train.py --version 1.0.0     # trace le run dans MLflow, publie artifacts/models/1.0.0
 pytest
 uvicorn express_delivery.main:app --reload  # http://localhost:8000/docs
 ```
@@ -27,12 +27,24 @@ uvicorn express_delivery.main:app --reload  # http://localhost:8000/docs
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-python scripts/train.py --version 1.0.0     # publie artifacts/models/1.0.0
+python scripts/train.py --version 1.0.0     # trace le run dans MLflow, publie artifacts/models/1.0.0
 pytest
 uvicorn express_delivery.main:app --reload  # http://localhost:8000/docs
 ```
 
 La racine `/` renvoie 404 (aucune route dans le contrat) : l'interface de test est `/docs`.
+
+## Entraînement et suivi MLflow (ADR-0007)
+
+`scripts/train.py` enchaîne `PipelineFactory` → `TrainTestSplitter` → `ModelEvaluator` via `ModelTrainer`, enregistre le run dans MLflow (paramètres, métriques, modèle) puis publie la version dans `artifacts/models/<X.Y.Z>/` ; le `run_id` est écrit dans `manifest.json`.
+
+```bash
+python scripts/train.py --version 1.1.0                 # une version publiée est immuable : incrémenter
+python scripts/train.py --version 1.2.0 --no-tracking   # sans MLflow
+mlflow ui --backend-store-uri sqlite:///mlflow.db       # http://localhost:5000
+```
+
+L'API ne dépend pas de MLflow : elle charge toujours `artifacts/models/$MODEL_VERSION` (ADR-0002).
 
 ## Clés d'API (ADR-0006)
 
@@ -81,5 +93,8 @@ En dev l'authentification est désactivée. Pour la tester localement, en trois 
 | `API_KEYS` | vide | Empreintes des clés `id:sha256:rôle:AAAA-MM-JJ;…` — secret Key Vault en prod |
 | `RATE_LIMIT_PER_MINUTE` | `60` | Requêtes par minute et par clé, par instance (ADR-0005) |
 | `EXPOSE_DOCS` | `true` (`false` si `APP_ENV=prod`) | Expose `/docs`, `/redoc`, `/openapi.json` |
+| `RANDOM_SEED` | `42` | Graine de la génération des données, du split et du modèle |
+| `MLFLOW_TRACKING_URI` | `sqlite:///mlflow.db` | Base de suivi MLflow (entraînement uniquement, ADR-0007) |
+| `MLFLOW_EXPERIMENT_NAME` | `livraison-express` | Expérience MLflow des runs d'entraînement |
 
-Documentation : [Architecture](docs/architecture.md) · [ADR-0001](docs/adr/ADR-0001-stockage-commandes-clients.md) · [ADR-0002](docs/adr/ADR-0002-stockage-artefacts-modele.md) · [ADR-0003 Hébergement](docs/adr/ADR-0003-hebergement-plateforme-deploiement.md) · [ADR-0004 Blue/Green](docs/adr/ADR-0004-strategie-deploiement-blue-green.md) · [ADR-0005 Entrées/sorties](docs/adr/ADR-0005-securite-entrees-sorties.md) · [ADR-0006 Accès à la donnée](docs/adr/ADR-0006-securite-acces-donnee.md)
+Documentation : [Architecture](docs/architecture.md) · [ADR-0001](docs/adr/ADR-0001-stockage-commandes-clients.md) · [ADR-0002](docs/adr/ADR-0002-stockage-artefacts-modele.md) · [ADR-0003 Hébergement](docs/adr/ADR-0003-hebergement-plateforme-deploiement.md) · [ADR-0004 Blue/Green](docs/adr/ADR-0004-strategie-deploiement-blue-green.md) · [ADR-0005 Entrées/sorties](docs/adr/ADR-0005-securite-entrees-sorties.md) · [ADR-0006 Accès à la donnée](docs/adr/ADR-0006-securite-acces-donnee.md) · [ADR-0007 Suivi MLflow](docs/adr/ADR-0007-suivi-experiences-mlflow.md)

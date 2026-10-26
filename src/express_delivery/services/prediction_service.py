@@ -5,10 +5,9 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
-import pandas as pd
-
 from express_delivery.abstractions.model_repository import LoadedModel
 from express_delivery.domain.models import PredictionResult
+from express_delivery.ml.feature_frame import build_feature_frame
 
 
 class PredictionService:
@@ -22,8 +21,7 @@ class PredictionService:
 
     def predict(self, order_id: str, features: Mapping[str, Any]) -> PredictionResult:
         start = time.perf_counter()
-        columns = list(self._model.metadata.features)
-        frame = pd.DataFrame([{name: features[name] for name in columns}], columns=columns)
+        frame = build_feature_frame([features], self._model.metadata.features)
         probability = float(self._model.estimator.predict_proba(frame)[0, 1])
         eligible = probability >= self._threshold
         return PredictionResult(

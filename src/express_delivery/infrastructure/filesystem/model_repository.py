@@ -48,6 +48,9 @@ class FileModelRepository(ModelRepository):
             raise ModelNotFoundError(f"Version invalide (attendu X.Y.Z) : {version!r}")
         return self._models_dir / version
 
+    def exists(self, version: str) -> bool:
+        return self._version_dir(version).exists()
+
     def load(self, version: str) -> LoadedModel:
         version_dir = self._version_dir(version)
         model_path = version_dir / MODEL_FILENAME
@@ -67,6 +70,7 @@ class FileModelRepository(ModelRepository):
             metrics=manifest["metrics"],
             trained_at=manifest["trained_at"],
             sklearn_version=manifest["sklearn_version"],
+            mlflow_run_id=manifest.get("mlflow_run_id"),  # absent des manifestes antérieurs
         )
         if metadata.sklearn_version != sklearn.__version__:
             logger.warning(
@@ -78,7 +82,7 @@ class FileModelRepository(ModelRepository):
 
     def save(self, estimator: Any, metadata: ModelMetadata) -> None:
         version_dir = self._version_dir(metadata.model_version)
-        if version_dir.exists():
+        if self.exists(metadata.model_version):
             raise FileExistsError(
                 f"La version {metadata.model_version} existe déjà : incrémentez MODEL_VERSION."
             )
