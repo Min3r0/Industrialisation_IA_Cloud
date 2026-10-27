@@ -1,0 +1,15 @@
+# Contexte de build en liste blanche (ADR-0009) : on exclut tout, puis on autorise
+# uniquement ce dont l'image a besoin. Aucun secret (.env), modèle, base SQLite,
+# run MLflow, notebook ni dossier .git ne peut ainsi entrer dans l'image par erreur.
+*
+
+!pyproject.toml
+!requirements/
+!src/
+!tests/
+!openapi.yml
+
+# Jamais de cache Python ni de métadonnées de build locales
+**/__pycache__
+**/*.py[cod]
+**/*.egg-info
