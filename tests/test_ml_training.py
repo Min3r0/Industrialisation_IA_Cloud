@@ -57,7 +57,8 @@ def test_trainer_logs_one_run_with_params_metrics_and_model(data):
     result = build_test_trainer(tracker).train(data, run_name="test", tags={"model_version": "1.2.3"})
 
     assert result.run_id == "run-1"
-    [run] = tracker.runs
+    assert len(tracker.runs) == 1
+    run = tracker.runs[0]
     assert run.run_name == "test" and run.tags == {"model_version": "1.2.3"}
     assert run.metrics == result.metrics and set(run.metrics) == METRICS
     assert run.params["model_type"] == "LogisticRegression"

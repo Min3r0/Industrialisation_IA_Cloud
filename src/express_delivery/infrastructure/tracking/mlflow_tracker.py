@@ -18,7 +18,8 @@ _SKOPS_TRUSTED_TYPES = ["numpy.dtype"]
 
 class MlflowExperimentTracker(ExperimentTracker):
     def __init__(self, tracking_uri: str, experiment_name: str) -> None:
-        import mlflow
+        # Import paresseux voulu : MLflow n'est pas installé dans l'image de l'API (ADR-0007)
+        import mlflow  # pylint: disable=import-outside-toplevel
 
         self._mlflow = mlflow
         mlflow.set_tracking_uri(tracking_uri)
@@ -26,7 +27,7 @@ class MlflowExperimentTracker(ExperimentTracker):
         logger.info("Suivi MLflow : %s (expérience %s)", tracking_uri, experiment_name)
 
     def log_run(self, run: TrainingRun) -> str:
-        import mlflow.sklearn
+        import mlflow.sklearn  # pylint: disable=import-outside-toplevel
 
         with self._mlflow.start_run(run_name=run.run_name) as active:
             self._mlflow.set_tags(dict(run.tags))

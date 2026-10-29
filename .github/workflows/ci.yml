@@ -1,0 +1,107 @@
+# Intégration continue (ADR-0010) : qualité du code, tests, construction de l'image.
+#
+#   lint   : pylint sur src/, scripts/ et tests/
+#   test   : pytest (68 tests, données synthétiques, aucun secret requis)
+#   docker : hadolint + construction de l'étape « test » du Dockerfile
+#            (pytest sur les dépendances réellement embarquées dans l'image)
+#
+# Déclenché sur chaque pull request vers main / develop (Gitflow, ADR-0008), sur chaque push
+# sur ces branches, à la main, et appelé par release.yml avant toute publication d'image.
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+  workflow_call:
+
+# Moindre privilège : la CI ne fait que lire le dépôt
+permissions:
+  contents: read
+
+# Un nouveau push sur une pull request annule l'exécution précédente devenue inutile
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.13"
+  # Les tests n'ont pas de pydoc à vérifier ; les fixtures pytest redéfinissent volontairement
+  # des noms de la portée englobante (redefined-outer-name)
+  PYLINT_TESTS_DISABLE: >-
+    missing-module-docstring,missing-class-docstring,missing-function-docstring,redefined-outer-name
+
+jobs:
+  lint:
+    name: Analyse statique (pylint)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          lock-files: requirements/test.lock requirements/lint.lock
+
+      # Règles et seuil (fail-under, fail-on) dans pyproject.toml, section [tool.pylint]
+      - name: pylint — application et scripts
+        run: pylint src scripts
+
+      - name: pylint — tests
+        run: pylint tests --disable="$PYLINT_TESTS_DISABLE"
+
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: pytest
+        run: python -m pytest -ra --junitxml=reports/pytest.xml
+
+      - name: Publier le rapport de tests
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pytest-report
+          path: reports/pytest.xml
+          retention-days: 14
+
+  docker:
+    name: Image Docker (hadolint + tests dans l'image)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: hadolint
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: Dockerfile
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Échoue si un test échoue dans l'image élaguée (ADR-0009). Le cache GitHub Actions
+      # est partagé avec release.yml : la publication réutilise les couches déjà construites.
+      - name: docker build --target test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: test
+          push: false
+          cache-from: type=gha,scope=express-delivery
+          cache-to: type=gha,scope=express-delivery,mode=max
