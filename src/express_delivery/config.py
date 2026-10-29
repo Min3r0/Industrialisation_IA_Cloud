@@ -61,3 +61,42 @@ class Settings:
             mlflow_tracking_uri=os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"),
             mlflow_experiment=os.getenv("MLFLOW_EXPERIMENT_NAME", "livraison-express"),
         )
+
+
+@dataclass(frozen=True)
+class MongoSettings:
+    """Connexion à la base analytique des commandes (ADR-0011).
+
+    Séparée de `Settings` : seuls l'entraînement et les scripts de données en ont
+    besoin, pas l'API. `MONGO_URI` peut contenir un mot de passe : il vient d'une
+    variable d'environnement (Key Vault en test/prod, ADR-0006), jamais du code.
+    """
+
+    uri: str
+    database: str = "livraison_express"
+    collection: str = "orders"
+    timeout_ms: int = 5000
+    batch_size: int = 1000
+
+    def __post_init__(self) -> None:
+        if not self.uri.startswith(("mongodb://", "mongodb+srv://")):
+            raise ValueError("MONGO_URI doit commencer par mongodb:// ou mongodb+srv://.")
+        if self.timeout_ms < 1 or self.batch_size < 1:
+            raise ValueError("MONGO_TIMEOUT_MS et MONGO_BATCH_SIZE doivent être >= 1.")
+
+    def __repr__(self) -> str:  # l'URI (et son éventuel mot de passe) ne doit jamais finir dans un log
+        return f"MongoSettings(database={self.database!r}, collection={self.collection!r})"
+
+    @classmethod
+    def from_env(cls) -> "MongoSettings":
+        """Lit MONGO_URI (obligatoire), MONGO_DATABASE, MONGO_COLLECTION, MONGO_TIMEOUT_MS, MONGO_BATCH_SIZE."""
+        uri = os.getenv("MONGO_URI", "").strip()
+        if not uri:
+            raise ValueError("MONGO_URI est obligatoire pour lire les commandes (ADR-0011).")
+        return cls(
+            uri=uri,
+            database=os.getenv("MONGO_DATABASE", "livraison_express"),
+            collection=os.getenv("MONGO_COLLECTION", "orders"),
+            timeout_ms=int(os.getenv("MONGO_TIMEOUT_MS", "5000")),
+            batch_size=int(os.getenv("MONGO_BATCH_SIZE", "1000")),
+        )

@@ -51,6 +51,8 @@ PowerShell : mêmes commandes, sauf `docker build` qui demande Docker Desktop d�
 
 Résultats au 29/10/2026 : pylint `src scripts` 9,22/10 (seuil 9,0 ; seules des docstrings manquent), pylint `tests` 10/10, pytest 68 tests OK.
 
+Après l'ajout de `MongoOrderRepository` (29/10/2026, [journal](journal/2026-10-29-order-repository-mongodb.md)) : pylint `src scripts` 9,40/10, pylint `tests` 10/10, pytest 125 tests OK + 2 tests d'intégration ignorés en CI (`-m integration`, ils demandent `MONGO_TEST_URI`). `test.lock` régénéré : ajout de `pymongo`, `dnspython`, `mongomock`, `pytz`, `sentinels`, aucune autre version modifiée.
+
 ## Seuil pylint
 
 Dans `pyproject.toml` :
