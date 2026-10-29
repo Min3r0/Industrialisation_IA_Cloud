@@ -3,6 +3,9 @@
 [![Licence MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 ![Workflow](https://img.shields.io/badge/workflow-Gitflow-orange.svg)
+![Docker](https://img.shields.io/badge/docker-image%20durcie-2496ED.svg)
+[![CI](https://github.com/Min3r0/Industrialisation_IA_Cloud/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Min3r0/Industrialisation_IA_Cloud/actions/workflows/ci.yml)
+[![Release](https://github.com/Min3r0/Industrialisation_IA_Cloud/actions/workflows/release.yml/badge.svg)](https://github.com/Min3r0/Industrialisation_IA_Cloud/actions/workflows/release.yml)
 
 Industrialisation du notebook `project_test_v1_final_final2.ipynb` en une API FastAPI qui prédit si une commande est éligible à la livraison express. Projet réalisé dans le cadre du cours « Industrialisation de l'IA dans le cloud » (Master 2 Expert en Intelligence Artificielle).
 
@@ -13,9 +16,11 @@ Industrialisation du notebook `project_test_v1_final_final2.ipynb` en une API Fa
 ## Sommaire
 
 - [Démarrage](#démarrage)
+- [Lancer avec Docker](#lancer-avec-docker-adr-0009)
 - [Entraînement et suivi MLflow](#entraînement-et-suivi-mlflow-adr-0007)
 - [Clés d'API](#clés-dapi-adr-0006)
 - [Configuration](#configuration-variables-denvironnement)
+- [Intégration continue et publication](#intégration-continue-et-publication-adr-0010)
 - [Organisation du code](#organisation-du-code)
 - [Contribuer](#contribuer)
 - [Sécurité](#sécurité)
@@ -52,6 +57,25 @@ uvicorn express_delivery.main:app --reload  # http://localhost:8000/docs
 ```
 
 La racine `/` renvoie 404 (aucune route dans le contrat) : l'interface de test est `/docs`.
+
+## Lancer avec Docker (ADR-0009)
+
+Prérequis : Docker Desktop (Windows / macOS) ou Docker Engine avec Compose v2, démarré. Il faut au moins un modèle publié dans `artifacts/models/` (voir [Entraînement](#entraînement-et-suivi-mlflow-adr-0007)) : l'image n'en contient pas, il est monté en lecture seule.
+
+```bash
+cp .env.example .env              # PowerShell : copy .env.example .env   (facultatif)
+docker compose up --build -d      # http://127.0.0.1:8000/docs
+docker compose ps                 # état « (healthy) » attendu
+docker compose down
+```
+
+```bash
+docker build --target test .      # lance les tests dans l'image
+```
+
+L'image est construite en plusieurs étapes, sur des dépendances verrouillées par empreinte (`requirements/prod.lock`). Elle tourne sous un utilisateur non root, sans pip, avec `APP_ENV=prod` par défaut ; Compose ajoute un système de fichiers en lecture seule, aucune capacité Linux et des limites de ressources. Taille : 560 Mo sur disque, 132 Mo compressés ; Trivy : aucune vulnérabilité HIGH/CRITICAL au 27/10/2026.
+
+Compression, scan de sécurité, épinglage de l'image de base et mise à jour des dépendances : [`docs/docker.md`](docs/docker.md).
 
 ## Entraînement et suivi MLflow (ADR-0007)
 
@@ -118,6 +142,24 @@ En dev l'authentification est désactivée. Pour la tester localement, en trois 
 
 Aucun secret ne doit être écrit dans le code ni commité : utiliser des variables d'environnement (fichiers `.env` ignorés par Git).
 
+## Intégration continue et publication (ADR-0010)
+
+GitHub Actions vérifie chaque pull request vers `develop` et `main` ([`ci.yml`](.github/workflows/ci.yml)) :
+
+| Job | Vérifie |
+|---|---|
+| Analyse statique (pylint) | `pylint src scripts` et `pylint tests` : aucune erreur ni alerte, note ≥ 9,0 (règles dans `pyproject.toml`) |
+| Tests (pytest) | les 68 tests ; rapport JUnit en artefact |
+| Image Docker | hadolint, puis `docker build --target test` (tests dans l'image) |
+
+À chaque **release GitHub publiée** (`vX.Y.Z` sur `main`), [`release.yml`](.github/workflows/release.yml) rejoue la CI, vérifie que le tag correspond à la version du code, démarre l'image pour la tester, la scanne avec Trivy puis la publie :
+
+```bash
+docker pull ghcr.io/min3r0/industrialisation_ia_cloud:1.0.0
+```
+
+Reproduire la CI en local, configurer GitHub, dépannage : [`docs/ci.md`](docs/ci.md).
+
 ## Organisation du code
 
 ```text
@@ -129,8 +171,12 @@ src/express_delivery/
 ├── services/        # Cas d'usage : OrderService, PredictionService, AuthService
 └── api/             # FastAPI : routers, schémas, sécurité, composition root (app.py)
 scripts/             # train.py, create_api_key.py
+requirements/        # dépendances verrouillées (prod.lock, test.lock, lint.lock)
 tests/               # pytest (unitaires, contrat OpenAPI, intégration MLflow)
-docs/                # architecture.md et ADR
+docs/                # architecture.md, docker.md, ci.md et ADR
+.github/workflows/   # CI (pytest, pylint, image) et publication de l'image à la release
+Dockerfile           # image multi-étapes : builder, test, runtime
+docker-compose.yml   # lancement local durci de l'image
 ```
 
 Détails et correspondance cellule du notebook → module : [`docs/architecture.md`](docs/architecture.md).
@@ -145,6 +191,8 @@ Détails et correspondance cellule du notebook → module : [`docs/architecture.
 | [0006](docs/adr/ADR-0006-securite-acces-donnee.md) | Sécurité de l'accès à la donnée |
 | [0007](docs/adr/ADR-0007-suivi-experiences-mlflow.md) | Suivi MLflow et découpage du code ML |
 | [0008](docs/adr/ADR-0008-workflow-git-gitflow.md) | Workflow Git : Gitflow |
+| [0009](docs/adr/ADR-0009-conteneurisation-image-docker.md) | Conteneurisation : image Docker |
+| [0010](docs/adr/ADR-0010-integration-continue-github-actions.md) | Intégration continue et publication de l'image (GitHub Actions) |
 
 ## Contribuer
 

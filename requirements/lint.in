@@ -1,0 +1,3 @@
+# Outils d'analyse statique de la CI (ADR-0010), installés en plus de test.lock
+# Régénérer requirements/lint.lock : voir docs/ci.md
+pylint>=4.1,<5

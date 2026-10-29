@@ -28,3 +28,32 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+# ---------------------------------------------------------------------------
+# Analyse statique (pylint) — exécutée par la CI GitHub Actions (ADR-0010)
+# ---------------------------------------------------------------------------
+[tool.pylint.main]
+jobs = 0                      # un processus par cœur
+init-hook = "import sys; sys.path[:0] = ['src', '.']"
+# Seuil de qualité : la CI échoue sous cette note (sur 10). À relever au fil des corrections.
+fail-under = 9.0
+# Indépendamment de la note, toute erreur (E), alerte (W) ou erreur fatale (F) fait échouer la CI.
+fail-on = ["E", "W", "F"]
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.basic]
+# Convention scikit-learn : X (matrice des variables), X_train, X_test
+good-names-rgxs = ["^X(_[a-z]+)?$"]
+
+[tool.pylint.design]
+# Settings (config.py) regroupe toute la configuration de l'application : 12 champs assumés
+max-attributes = 12
+
+[tool.pylint."messages control"]
+disable = [
+    # Les ports (abstractions/) et les objets de valeur ont volontairement une seule
+    # méthode publique, voire aucune : c'est le principe de ségrégation des interfaces (SOLID, I).
+    "too-few-public-methods",
+]

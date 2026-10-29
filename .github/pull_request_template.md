@@ -19,6 +19,7 @@
 
 - [ ] Branche cible correcte (`develop` ; `main` seulement pour `release/*` et `hotfix/*`)
 - [ ] `pytest` passe en local
+- [ ] `pylint src scripts` et `pylint tests` passent (voir CONTRIBUTING.md)
 - [ ] Tests ajoutés ou mis à jour
 - [ ] `openapi.yml` mis à jour si une route change
 - [ ] README / `docs/architecture.md` / ADR mis à jour si le comportement change
