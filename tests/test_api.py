@@ -1,9 +1,11 @@
+from express_delivery import __version__
 from tests.conftest import EASY_ORDER, HARD_ORDER
 
 
 def test_health(client):
+    # Version du code (pyproject.toml / __init__.py), indépendante de la version du modèle
     assert client.get("/health").json() == {
-        "status": "ok", "service": "eligibilite-livraison-express", "version": "1.0.0"}
+        "status": "ok", "service": "eligibilite-livraison-express", "version": __version__}
 
 
 def test_ready_when_model_loaded(client):
