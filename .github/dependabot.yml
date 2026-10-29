@@ -1,0 +1,14 @@
+# Les actions des workflows sont épinglées par empreinte de commit (ADR-0010) :
+# Dependabot propose chaque mois une pull request vers develop pour les mettre à jour.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories: ["/", "/.github/actions/*"]
+    target-branch: develop
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci

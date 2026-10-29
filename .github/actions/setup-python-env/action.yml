@@ -1,0 +1,35 @@
+name: Préparer l'environnement Python
+description: >
+  Installe Python et les dépendances verrouillées (empreintes SHA-256) du projet,
+  puis le paquet express-delivery. Partagé par les jobs lint et test (ADR-0010).
+
+inputs:
+  python-version:
+    description: Version de Python (identique à l'image Docker, ADR-0009)
+    default: "3.13"
+  lock-files:
+    description: Fichiers verrouillés à installer, séparés par des espaces
+    default: requirements/test.lock
+
+runs:
+  using: composite
+  steps:
+    - name: Installer Python ${{ inputs.python-version }}
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: pip
+        cache-dependency-path: requirements/*.lock
+
+    - name: Installer les dépendances verrouillées
+      shell: bash
+      env:
+        LOCK_FILES: ${{ inputs.lock-files }}
+      run: |
+        python -m pip install --upgrade pip
+        requirements=()
+        for lock in $LOCK_FILES; do requirements+=(-r "$lock"); done
+        # Mêmes options que le Dockerfile : versions et empreintes imposées, roues uniquement
+        python -m pip install --require-hashes --no-deps --only-binary=:all: "${requirements[@]}"
+        python -m pip install --no-deps -e .
+        python -m pip check

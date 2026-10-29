@@ -3,11 +3,15 @@ import pytest
 
 mlflow = pytest.importorskip("mlflow")
 
+# Imports après importorskip : le module est ignoré si MLflow est absent
+# pylint: disable=wrong-import-position
 from express_delivery.ml.dataset import clean_orders_data, generate_orders_dataset  # noqa: E402
 from tests.conftest import build_test_trainer  # noqa: E402
 
 
 def test_mlflow_tracker_records_params_metrics_and_model(tmp_path, monkeypatch):
+    # MLflow est facultatif (importorskip plus haut) : import local voulu
+    # pylint: disable-next=import-outside-toplevel
     from express_delivery.infrastructure.tracking.mlflow_tracker import MlflowExperimentTracker
 
     monkeypatch.chdir(tmp_path)  # les artefacts MLflow (mlruns/) restent dans le dossier temporaire

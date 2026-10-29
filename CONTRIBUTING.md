@@ -128,7 +128,11 @@ Et aussi :
 
 ```bash
 pytest
+pylint src scripts
+pylint tests --disable=missing-module-docstring,missing-class-docstring,missing-function-docstring,redefined-outer-name
 ```
+
+Ce sont les commandes de la CI (GitHub Actions, [docs/ci.md](docs/ci.md)) : pylint n'accepte aucune erreur ni alerte et une note minimale de 9,0 (`pyproject.toml`). Installer pylint avec `pip install --require-hashes --no-deps -r requirements/lint.lock`. Une règle désactivée sur une ligne (`# pylint: disable=…`) l'est avec sa raison en commentaire.
 
 - Chaque correction de bug arrive avec un test qui échouait avant.
 - Chaque nouvelle classe a ses tests unitaires ; utiliser les doubles de `tests/fakes.py` et `InMemoryOrderStore` plutôt que des services réels.
@@ -139,7 +143,7 @@ pytest
 1. Une pull request = un sujet. Cible : `develop` (sauf `release/*` et `hotfix/*`, voir ci-dessous).
 2. Remplissez le modèle de description (contexte, changements, tests, ADR concernée).
 3. Conditions de fusion :
-   - les tests passent ;
+   - les checks GitHub Actions sont verts (pylint, pytest, image Docker) ;
    - au moins une relecture approuvée ;
    - la branche est à jour avec sa cible ;
    - la documentation (README, architecture, ADR) est mise à jour si le comportement change.
@@ -154,14 +158,16 @@ Le projet suit le [versionnage sémantique](https://semver.org/lang/fr/) : `MAJE
 # 1. Préparer
 git switch develop && git pull
 git switch -c release/1.2.0
-# mettre à jour version dans pyproject.toml, commit "build: version 1.2.0"
+# mettre la version dans pyproject.toml ET src/express_delivery/__init__.py, commit "build: version 1.2.0"
 git push -u origin release/1.2.0
 # 2. Pull request release/1.2.0 -> main, relecture, fusion (merge commit)
 # 3. Taguer main
 git switch main && git pull
 git tag -a v1.2.0 -m "Version 1.2.0"
 git push origin v1.2.0
-# 4. Reporter dans develop (pull request main -> develop ou fusion de release/1.2.0 dans develop)
+# 4. Créer la release GitHub : l'image Docker est construite et publiée sur ghcr.io (docs/ci.md)
+gh release create v1.2.0 --generate-notes
+# 5. Reporter dans develop (pull request main -> develop ou fusion de release/1.2.0 dans develop)
 ```
 
 Un **hotfix** suit le même chemin depuis `main` : `git switch -c hotfix/1.1.1 main`, correction, pull request vers `main`, tag `v1.1.1`, puis report dans `develop`.

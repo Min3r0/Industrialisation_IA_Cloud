@@ -1,0 +1,203 @@
+# Publication de l'image Docker à chaque release GitHub (ADR-0010).
+#
+#   1. quality : rejoue toute la CI (pylint, pytest, tests dans l'image) sur le commit tagué
+#   2. publish : vérifie la cohérence tag / version / branche, construit l'image de production,
+#                la teste au démarrage, la scanne (Trivy) puis la pousse sur GitHub Container
+#                Registry (ghcr.io) avec SBOM et attestation de provenance.
+#
+# Une release se crée depuis un tag vX.Y.Z posé sur main (procédure Gitflow : CONTRIBUTING.md).
+name: Release — image Docker
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+# Jamais deux publications simultanées de la même version ; une publication n'est jamais annulée
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  LOCAL_IMAGE: express-delivery:candidate
+
+jobs:
+  quality:
+    name: CI complète
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Construire, vérifier et publier l'image
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write # pousser sur ghcr.io avec GITHUB_TOKEN
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # historique complet : vérifier que le tag est sur main
+          persist-credentials: false
+
+      # -------------------------------------------------------------------------------
+      # Garde-fous : on ne publie que ce que Gitflow a validé (ADR-0008)
+      # -------------------------------------------------------------------------------
+      - name: Vérifier tag, version et branche
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Le tag « $TAG » ne respecte pas le format vX.Y.Z (versionnage sémantique)."
+            exit 1
+          fi
+          version="${TAG#v}"
+          project_version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          package_version=$(sed -nE 's/^__version__ = "(.*)"/\1/p' src/express_delivery/__init__.py)
+          echo "tag=$version pyproject.toml=$project_version __init__.py=$package_version"
+          for code_version in "$project_version" "$package_version"; do
+            if [[ "$code_version" != "$version" ]]; then
+              echo "::error::Le tag $TAG ne correspond pas à la version du code (pyproject.toml : $project_version, __init__.py : $package_version)."
+              exit 1
+            fi
+          done
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Le commit tagué n'est pas sur main : une release part de main (Gitflow, ADR-0008)."
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Tags d'image : 1.2.3, 1.2, 1 et latest (latest et les tags courts : versions stables uniquement)
+      - name: Métadonnées de l'image
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.event.release.tag_name, 'v0.') }}
+          flavor: |
+            latest=auto
+          labels: |
+            org.opencontainers.image.title=express-delivery
+            org.opencontainers.image.description=API d'éligibilité à la livraison express
+            org.opencontainers.image.licenses=MIT
+
+      # -------------------------------------------------------------------------------
+      # 1. Image candidate, chargée localement pour être testée avant toute publication
+      # -------------------------------------------------------------------------------
+      - name: Construire l'image candidate
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: runtime
+          load: true
+          tags: ${{ env.LOCAL_IMAGE }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+          cache-from: type=gha,scope=express-delivery
+          cache-to: type=gha,scope=express-delivery,mode=max
+
+      # Démarre l'image avec sa configuration par défaut (APP_ENV=prod) et les durcissements
+      # de docker-compose.yml, sans modèle monté : vivacité OK, disponibilité 503 (ADR-0009).
+      - name: Test de démarrage (smoke test)
+        env:
+          EXPECTED_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          docker run -d --name smoke -p 127.0.0.1:8000:8000 \
+            --read-only --tmpfs /tmp:rw,noexec,nosuid --tmpfs /data:rw,uid=10001,gid=10001 \
+            --cap-drop ALL --security-opt no-new-privileges \
+            "$LOCAL_IMAGE"
+          trap 'docker logs smoke; docker rm -f smoke >/dev/null' EXIT
+
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8000/health -o health.json && break
+            sleep 1
+          done
+          cat health.json; echo
+          python3 - "$EXPECTED_VERSION" <<'PY'
+          import json, sys
+          health = json.load(open("health.json"))
+          assert health["status"] == "ok", health
+          assert health["version"] == sys.argv[1], f"version {health['version']} != {sys.argv[1]}"
+          PY
+
+          check() { # check <description> <attendu> <obtenu>
+            if [[ "$2" != "$3" ]]; then echo "::error::$1 : attendu $2, obtenu $3"; exit 1; fi
+            echo "OK  $1 = $3"
+          }
+          check "GET /health/ready sans modèle" 503 "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health/ready)"
+          check "GET /docs en production" 404 "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/docs)"
+          check "En-tête server" 0 "$(curl -sI http://127.0.0.1:8000/health | grep -ci '^server:' || true)"
+          check "Utilisateur du processus" 10001 "$(docker exec smoke python -c 'import os; print(os.getuid())')"
+          check "pip absent de l'image" 1 "$(docker exec smoke python -m pip --version >/dev/null 2>&1; echo $?)"
+
+      # Vulnérabilités HIGH/CRITICAL corrigeables et secrets : la publication est bloquée
+      - name: Scan de vulnérabilités (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.LOCAL_IMAGE }}
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+      # -------------------------------------------------------------------------------
+      # 2. Publication : mêmes couches (cache), compression zstd, SBOM et provenance
+      # -------------------------------------------------------------------------------
+      - name: Connexion à ${{ env.REGISTRY }}
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publier l'image
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: runtime
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+          # zstd niveau 3 : couches ~9 % plus légères que gzip, décompression plus rapide (docs/docker.md)
+          outputs: type=image,push=true,compression=zstd,compression-level=3,force-compression=true,oci-mediatypes=true
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha,scope=express-delivery
+
+      - name: Résumé
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          {
+            echo "## Image publiée"
+            echo
+            echo "Empreinte : \`$DIGEST\`"
+            echo
+            echo "| Tag |"
+            echo "|---|"
+            while read -r tag; do [[ -n "$tag" ]] && echo "| \`$tag\` |"; done <<< "$TAGS"
+            echo
+            echo "Déployer par empreinte (Blue/Green, ADR-0004) :"
+            echo
+            echo "\`\`\`"
+            echo "${REGISTRY}/${IMAGE_NAME,,}@${DIGEST}"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"

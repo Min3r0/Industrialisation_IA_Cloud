@@ -37,6 +37,8 @@ def build_tracker(settings: Settings, enabled: bool) -> ExperimentTracker:
     if not enabled:
         logger.warning("Suivi MLflow désactivé (--no-tracking).")
         return NullExperimentTracker()
+    # Import paresseux voulu : MLflow n'est requis que si le suivi est activé (ADR-0007)
+    # pylint: disable-next=import-outside-toplevel
     from express_delivery.infrastructure.tracking.mlflow_tracker import MlflowExperimentTracker
 
     return MlflowExperimentTracker(settings.mlflow_tracking_uri, settings.mlflow_experiment)

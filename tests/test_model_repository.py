@@ -1,3 +1,5 @@
+import shutil
+
 import pytest
 
 from express_delivery.abstractions.model_repository import ModelNotFoundError
@@ -32,7 +34,6 @@ def test_existing_version_is_immutable(models_dir):
 
 
 def test_tampered_model_is_rejected(models_dir, tmp_path):
-    import shutil
     copy = tmp_path / "models"
     shutil.copytree(models_dir, copy)
     with open(copy / VERSION / MODEL_FILENAME, "ab") as file:
