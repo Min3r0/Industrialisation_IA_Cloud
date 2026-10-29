@@ -41,6 +41,11 @@ flowchart LR
     PS --> FF[ml/feature_frame]
     SP --> FF
     TRAIN --> MRP
+    CHK[scripts/check_orders_source.py] --> ORP{{abstractions/OrderRepository}}
+    ORP -.implémente.- MGR[infrastructure/mongo<br/>MongoOrderRepository]
+    ORP -.implémente.- MER[infrastructure/memory<br/>InMemoryOrderRepository]
+    MGR --> MAP[infrastructure/mongo<br/>OrderDocumentMapper]
+    MAP --> VAL[domain/OrderRecordValidator]
 ```
 
 ## Arborescence
@@ -49,11 +54,14 @@ flowchart LR
 src/express_delivery/
 ├── config.py                  # Settings lus depuis l'environnement (dev/test/prod), garde-fous prod
 ├── domain/                    # Objets métier purs : Order, PredictionResult, ModelMetadata, FEATURE_COLUMNS
-│   └── security.py            #   Role, ApiKey, empreinte SHA-256      → ADR-0006
-├── abstractions/              # Ports (ABC) : OrderStore, ModelRepository, ApiKeyStore, RateLimiter, ExperimentTracker
+│   ├── security.py            #   Role, ApiKey, empreinte SHA-256      → ADR-0006
+│   ├── order_record.py        #   OrderRecord (commande ERP), OrderPeriod [début, fin[ → ADR-0011
+│   └── order_validation.py    #   OrderRecordValidator : contrat de données des commandes ERP → ADR-0011
+├── abstractions/              # Ports (ABC) : OrderStore, OrderRepository, ModelRepository, ApiKeyStore, RateLimiter, ExperimentTracker
 ├── infrastructure/            # Adaptateurs concrets
 │   ├── sqlite/                #   SqliteOrderStore        → ADR-0001
-│   ├── memory/                #   InMemoryOrderStore (tests), SlidingWindowRateLimiter → ADR-0005
+│   ├── memory/                #   InMemoryOrderStore, InMemoryOrderRepository (tests), SlidingWindowRateLimiter → ADR-0005
+│   ├── mongo/                 #   MongoOrderRepository, OrderDocumentMapper, open_mongo_order_repository → ADR-0011
 │   ├── env/                   #   EnvApiKeyStore (API_KEYS, Key Vault en prod) → ADR-0006
 │   ├── filesystem/            #   FileModelRepository     → ADR-0002
 │   └── tracking/              #   MlflowExperimentTracker, NullExperimentTracker → ADR-0007
@@ -68,7 +76,8 @@ src/express_delivery/
 └── api/                       # FastAPI : schémas, erreurs, security (require_role), routes, composition root
 scripts/train.py               # Composition root de l'entraînement : trace dans MLflow et publie une version
 scripts/create_api_key.py      # Génère une clé d'API et son entrée API_KEYS (empreinte)
-tests/                         # 68 tests dont le contrat OpenAPI, la sécurité, les classes ML et MLflow
+scripts/check_orders_source.py # Vérifie la connexion MongoDB et résume les commandes lues (ADR-0011)
+tests/                         # 125 tests (+2 d'intégration MongoDB) : contrat OpenAPI, sécurité, ML, MLflow, OrderRepository
 ```
 
 ## Correspondance notebook → application
@@ -97,11 +106,12 @@ tests/                         # 68 tests dont le contrat OpenAPI, la sécurité
 
 - **S — Responsabilité unique** : une classe = une raison de changer (`SqliteOrderStore` ne fait que persister, `PredictionService` ne fait que prédire, les routes ne font que traduire HTTP ↔ service).
 - **O — Ouvert/fermé** : ajouter PostgreSQL, MLflow ou S3 = ajouter une classe dans `infrastructure/`, sans modifier services ni routes.
-- **L — Substitution de Liskov** : la même suite `tests/test_order_store.py` tourne sur `InMemoryOrderStore` et `SqliteOrderStore`.
+- **L — Substitution de Liskov** : la même suite `tests/test_order_store.py` tourne sur `InMemoryOrderStore` et `SqliteOrderStore` ; `tests/test_order_repository.py` sur `InMemoryOrderRepository` et `MongoOrderRepository`.
 - **I — Ségrégation des interfaces** : deux ports courts et séparés (commandes / modèle) plutôt qu'un « repository » fourre-tout.
 - **D — Inversion des dépendances** : services et API dépendent des ABC ; seul `api/app.py` (composition root) instancie les classes concrètes.
 - **Sécurité (séance 2)** : la politique d'accès (`Role.USER` sur `/v1/*`, sondes publiques) est déclarée une seule fois dans `create_app` ; les routes ne savent rien de l'authentification (S) ; changer de source de clés ou de limiteur = nouvelle implémentation d'un port (O, D).
 - **Entraînement (26/10, ADR-0007)** : une classe par étape (`PipelineFactory`, `TrainTestSplitter`, `ModelEvaluator`) orchestrées par `ModelTrainer`, qui reçoit tout au constructeur (D) ; le suivi passe par le port `ExperimentTracker` : MLflow en vrai, `NullExperimentTracker` ou une doublure en test (L, O).
+- **Source de données (29/10, ADR-0011)** : port de **lecture** `OrderRepository` (`get`, `get_all`) séparé de `OrderStore` (I) ; `MongoOrderRepository` interroge, `OrderDocumentMapper` convertit, `OrderRecordValidator` contrôle, `open_mongo_order_repository` gère la connexion (S) ; le dépôt reçoit la collection ouverte (D) ; les erreurs du pilote deviennent `OrderSourceError` pour ne pas exposer pymongo aux appelants.
 - **DRY** : la liste des variables n'existe qu'une fois (`domain/features.py`) et la conversion commande → DataFrame aussi (`ml/feature_frame.py`) ; **YAGNI** : pas de batch, model card ni Model Registry avant leur séance.
 
 ## Éléments à industrialiser (tableau de la cellule 63)

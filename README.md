@@ -89,6 +89,19 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db       # http://localhost:5000
 
 L'API ne dépend pas de MLflow : elle charge toujours `artifacts/models/$MODEL_VERSION` ([ADR-0002](docs/adr/ADR-0002-stockage-artefacts-modele.md)).
 
+## Commandes de l'ERP (MongoDB, ADR-0011)
+
+Les commandes réelles sont lues, en lecture seule, dans la base analytique MongoDB via le port `OrderRepository` (`MongoOrderRepository`). Bases et simulateur ERP : `tp4-bdd.zip` (`docker compose -f docker-compose.erp.yml up --build`).
+
+```bash
+pip install -e ".[mongo]"                                       # pymongo (déjà inclus dans [train] et [dev])
+MONGO_URI=mongodb://localhost:27017 python scripts/check_orders_source.py                      # connexion + résumé
+MONGO_URI=mongodb://localhost:27017 python scripts/check_orders_source.py --start 2025-01-01 --verbose
+MONGO_TEST_URI=mongodb://localhost:27017 python -m pytest -m integration                       # tests sur la vraie base
+```
+
+Chaque document est validé (types, bornes, modalités ERP, cohérence `order_date` / `day_of_week` / `weekend`) ; un document invalide est écarté et compté dans les logs.
+
 ## Clés d'API (ADR-0006)
 
 En dev l'authentification est désactivée. Pour la tester localement, en trois étapes.
@@ -140,6 +153,16 @@ En dev l'authentification est désactivée. Pour la tester localement, en trois 
 | `MLFLOW_TRACKING_URI` | `sqlite:///mlflow.db` | Base de suivi MLflow (entraînement uniquement, ADR-0007) |
 | `MLFLOW_EXPERIMENT_NAME` | `livraison-express` | Expérience MLflow des runs d'entraînement |
 
+Lecture des commandes de l'ERP dans la base analytique MongoDB (entraînement et scripts de données, [ADR-0011](docs/adr/ADR-0011-source-donnees-postgresql-mongodb.md)) :
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `MONGO_URI` | *(obligatoire)* | `mongodb://hôte:27017` — secret Key Vault en test/prod (utilisateur au rôle `read`) |
+| `MONGO_DATABASE` | `livraison_express` | Base de l'ETL |
+| `MONGO_COLLECTION` | `orders` | Collection des commandes |
+| `MONGO_TIMEOUT_MS` | `5000` | Délai maximal de connexion |
+| `MONGO_BATCH_SIZE` | `1000` | Documents lus par aller-retour réseau |
+
 Aucun secret ne doit être écrit dans le code ni commité : utiliser des variables d'environnement (fichiers `.env` ignorés par Git).
 
 ## Intégration continue et publication (ADR-0010)
@@ -149,7 +172,7 @@ GitHub Actions vérifie chaque pull request vers `develop` et `main` ([`ci.yml`]
 | Job | Vérifie |
 |---|---|
 | Analyse statique (pylint) | `pylint src scripts` et `pylint tests` : aucune erreur ni alerte, note ≥ 9,0 (règles dans `pyproject.toml`) |
-| Tests (pytest) | les 68 tests ; rapport JUnit en artefact |
+| Tests (pytest) | les 125 tests (les 2 tests d'intégration MongoDB sont ignorés sans `MONGO_TEST_URI`) ; rapport JUnit en artefact |
 | Image Docker | hadolint, puis `docker build --target test` (tests dans l'image) |
 
 À chaque **release GitHub publiée** (`vX.Y.Z` sur `main`), [`release.yml`](.github/workflows/release.yml) rejoue la CI, vérifie que le tag correspond à la version du code, démarre l'image pour la tester, la scanne avec Trivy puis la publie :
@@ -165,12 +188,12 @@ Reproduire la CI en local, configurer GitHub, dépannage : [`docs/ci.md`](docs/c
 ```text
 src/express_delivery/
 ├── domain/          # Objets métier purs (Order, PredictionResult, ModelMetadata, sécurité)
-├── abstractions/    # Ports (ABC) : OrderStore, ModelRepository, ApiKeyStore, RateLimiter, ExperimentTracker
-├── infrastructure/  # Adaptateurs : sqlite, memory, env, filesystem, tracking (MLflow)
+├── abstractions/    # Ports (ABC) : OrderStore, OrderRepository, ModelRepository, ApiKeyStore, RateLimiter, ExperimentTracker
+├── infrastructure/  # Adaptateurs : sqlite, memory, mongo, env, filesystem, tracking (MLflow)
 ├── ml/              # Données et entraînement, une classe par responsabilité
 ├── services/        # Cas d'usage : OrderService, PredictionService, AuthService
 └── api/             # FastAPI : routers, schémas, sécurité, composition root (app.py)
-scripts/             # train.py, create_api_key.py
+scripts/             # train.py, create_api_key.py, check_orders_source.py
 requirements/        # dépendances verrouillées (prod.lock, test.lock, lint.lock)
 tests/               # pytest (unitaires, contrat OpenAPI, intégration MLflow)
 docs/                # architecture.md, docker.md, ci.md et ADR
@@ -193,6 +216,7 @@ Détails et correspondance cellule du notebook → module : [`docs/architecture.
 | [0008](docs/adr/ADR-0008-workflow-git-gitflow.md) | Workflow Git : Gitflow |
 | [0009](docs/adr/ADR-0009-conteneurisation-image-docker.md) | Conteneurisation : image Docker |
 | [0010](docs/adr/ADR-0010-integration-continue-github-actions.md) | Intégration continue et publication de l'image (GitHub Actions) |
+| [0011](docs/adr/ADR-0011-source-donnees-postgresql-mongodb.md) | Source des données de commandes : MongoDB (base analytique) |
 
 ## Contribuer
 

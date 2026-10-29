@@ -19,8 +19,10 @@ dependencies = [
 
 [project.optional-dependencies]
 # Entraînement uniquement (scripts/train.py) : l'image de l'API n'embarque pas MLflow (ADR-0007)
-train = ["mlflow>=3.0", "skops>=0.10"]
-dev = ["pytest>=8", "httpx>=0.27", "pyyaml>=6", "mlflow>=3.0", "skops>=0.10"]
+train = ["mlflow>=3.0", "skops>=0.10", "pymongo>=4.15"]
+# Lecture des commandes dans la base analytique MongoDB (ADR-0011)
+mongo = ["pymongo>=4.15"]
+dev = ["pytest>=8", "httpx>=0.27", "pyyaml>=6", "mlflow>=3.0", "skops>=0.10", "pymongo>=4.15", "mongomock>=4.3"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -28,6 +30,9 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "integration: tests sur une vraie base (MongoDB du simulateur ERP), ignorés sans MONGO_TEST_URI",
+]
 
 # ---------------------------------------------------------------------------
 # Analyse statique (pylint) — exécutée par la CI GitHub Actions (ADR-0010)
