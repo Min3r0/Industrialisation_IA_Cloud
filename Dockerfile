@@ -62,6 +62,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
         -r requirements/test.lock
 COPY openapi.yml ./
 COPY tests ./tests
+# Les tests importent les composition roots (scripts/) : ils doivent exister dans l'image de test
+COPY scripts ./scripts
 RUN python -m pytest -q -p no:cacheprovider
 
 # ---------------------------------------------------------------------------
