@@ -29,7 +29,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]  # "." : tests des scripts (scripts/train.py), comme pylint
 markers = [
     "integration: tests sur une vraie base (MongoDB du simulateur ERP), ignorés sans MONGO_TEST_URI",
 ]
