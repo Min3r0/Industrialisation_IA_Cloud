@@ -4,6 +4,9 @@ Composition root de l'entraînement : seul endroit qui choisit les implémentati
 concrètes (dépôt de modèles, outil de suivi), comme `api/app.py` pour le service.
 
 Usage : python scripts/train.py [--version 1.0.0] [--models-dir artifacts/models] [--no-tracking]
+                                [--source synthetic|erp] [--start AAAA-MM-JJ] [--end AAAA-MM-JJ]
+Données : `synthetic` (défaut, jeu du notebook) ou `erp` (commandes lues dans MongoDB via
+MONGO_URI, étiquette dérivée par la règle métier — ADR-0011 et ADR-0012).
 Suivi : MLFLOW_TRACKING_URI (défaut sqlite:///mlflow.db), MLFLOW_EXPERIMENT_NAME, RANDOM_SEED.
 Interface MLflow : mlflow ui --backend-store-uri sqlite:///mlflow.db
 """
@@ -13,18 +16,24 @@ import argparse
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
+import pandas as pd
 import sklearn
 
 from express_delivery.abstractions.experiment_tracker import ExperimentTracker
-from express_delivery.config import Settings
+from express_delivery.abstractions.order_repository import OrderSourceError
+from express_delivery.config import MongoSettings, Settings
+from express_delivery.domain.express_eligibility import ExpressEligibilityRule
 from express_delivery.domain.features import FEATURE_COLUMNS, TARGET_COLUMN
 from express_delivery.domain.models import ModelMetadata
+from express_delivery.domain.order_record import OrderPeriod
+from express_delivery.domain.order_translation import ErpOrderTranslator
 from express_delivery.infrastructure.filesystem.model_repository import FileModelRepository
 from express_delivery.infrastructure.tracking.null_tracker import NullExperimentTracker
 from express_delivery.ml.dataset import clean_orders_data, generate_orders_dataset, validate_dataset
+from express_delivery.ml.erp_dataset import ErpTrainingDataBuilder
 from express_delivery.ml.evaluator import ModelEvaluator
 from express_delivery.ml.pipeline_factory import PipelineFactory
 from express_delivery.ml.splitter import TrainTestSplitter
@@ -44,6 +53,23 @@ def build_tracker(settings: Settings, enabled: bool) -> ExperimentTracker:
     return MlflowExperimentTracker(settings.mlflow_tracking_uri, settings.mlflow_experiment)
 
 
+def load_synthetic_data(settings: Settings) -> pd.DataFrame:
+    """Jeu synthétique du notebook (comportement historique)."""
+    return generate_orders_dataset(random_state=settings.random_seed)
+
+
+def load_erp_data(period: OrderPeriod) -> pd.DataFrame:
+    """Commandes de l'ERP lues en lecture seule dans MongoDB, étiquetées par la règle métier."""
+    # Import paresseux voulu : pymongo n'est requis que pour lire l'ERP (extra `mongo`, ADR-0011)
+    # pylint: disable-next=import-outside-toplevel
+    from express_delivery.infrastructure.mongo.connection import open_mongo_order_repository
+
+    with open_mongo_order_repository(MongoSettings.from_env()) as repository:
+        records = repository.get_all(period)
+    builder = ErpTrainingDataBuilder(ErpOrderTranslator(), ExpressEligibilityRule())
+    return builder.build(records)
+
+
 def build_trainer(settings: Settings, tracker: ExperimentTracker) -> ModelTrainer:
     return ModelTrainer(
         pipeline_factory=PipelineFactory(random_state=settings.random_seed),
@@ -58,6 +84,10 @@ def main() -> int:
     parser.add_argument("--version", default="1.0.0")
     parser.add_argument("--models-dir", type=Path, default=Path("artifacts/models"))
     parser.add_argument("--no-tracking", action="store_true", help="N'enregistre pas le run dans MLflow")
+    parser.add_argument("--source", choices=("synthetic", "erp"), default="synthetic",
+                        help="origine des données d'entraînement (défaut : synthetic)")
+    parser.add_argument("--start", type=date.fromisoformat, help="--source erp : date de début incluse (AAAA-MM-JJ)")
+    parser.add_argument("--end", type=date.fromisoformat, help="--source erp : date de fin exclue (AAAA-MM-JJ)")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s")
 
@@ -67,14 +97,23 @@ def main() -> int:
         logger.error("La version %s existe déjà : incrémentez --version (ADR-0002).", args.version)
         return 1
 
-    data = clean_orders_data(generate_orders_dataset(random_state=settings.random_seed))
-    validate_dataset(data)
+    try:
+        if args.source == "erp":
+            raw = load_erp_data(OrderPeriod(args.start, args.end))
+        else:
+            raw = load_synthetic_data(settings)
+        data = clean_orders_data(raw)
+        validate_dataset(data)
+    except (ValueError, OrderSourceError) as error:  # config absente, source injoignable, données inutilisables
+        logger.error("%s", error)
+        return 1
+    logger.info("Source des données : %s (%d lignes)", args.source, len(data))
 
     trainer = build_trainer(settings, build_tracker(settings, enabled=not args.no_tracking))
     result = trainer.train(
         data,
         run_name=f"logistic-regression-{args.version}",
-        tags={"model_version": args.version, "environment": settings.environment},
+        tags={"model_version": args.version, "environment": settings.environment, "data_source": args.source},
     )
 
     repository.save(result.pipeline, ModelMetadata(

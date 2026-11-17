@@ -108,6 +108,8 @@ Négatives et actions :
 - `carrier_capacity` va de 5 à 50 alors que `validate_dataset` impose 0-1 ;
 - `order_date` est stocké en `datetime` (minuit) dans MongoDB.
 
+> [!success] Traité par l'[ADR-0012](ADR-0012-cible-express-regle-metier-erp.md) (17/11/2026) : cible dérivée par une règle métier, traduction ERP → domaine, `carrier_capacity` ramenée à 0-1.
+
 Ces écarts imposent une **couche de correspondance** (ERP → domaine) testée, et probablement un **nouveau modèle** (nouvelle version MLflow, [ADR-0007](ADR-0007-suivi-experiences-mlflow.md)) plutôt que la réutilisation du modèle 1.1.0.
 
 Critères de réexamen : la base de production obtient une réplique en lecture administrée, ou l'ETL MongoDB n'est plus maintenu, ou le modèle a besoin de plus de 3 ans d'historique.

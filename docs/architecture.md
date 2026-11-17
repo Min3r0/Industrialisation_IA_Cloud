@@ -46,6 +46,10 @@ flowchart LR
     ORP -.implémente.- MER[infrastructure/memory<br/>InMemoryOrderRepository]
     MGR --> MAP[infrastructure/mongo<br/>OrderDocumentMapper]
     MAP --> VAL[domain/OrderRecordValidator]
+    TRAIN --> ORP
+    TRAIN --> EDB[ml/ErpTrainingDataBuilder]
+    EDB --> TRL[domain/ErpOrderTranslator]
+    EDB --> RUL[domain/ExpressEligibilityRule]
 ```
 
 ## Arborescence
@@ -56,7 +60,9 @@ src/express_delivery/
 ├── domain/                    # Objets métier purs : Order, PredictionResult, ModelMetadata, FEATURE_COLUMNS
 │   ├── security.py            #   Role, ApiKey, empreinte SHA-256      → ADR-0006
 │   ├── order_record.py        #   OrderRecord (commande ERP), OrderPeriod [début, fin[ → ADR-0011
-│   └── order_validation.py    #   OrderRecordValidator : contrat de données des commandes ERP → ADR-0011
+│   ├── order_validation.py    #   OrderRecordValidator : contrat de données des commandes ERP → ADR-0011
+│   ├── order_translation.py   #   ErpOrderTranslator : modalités et échelle ERP → domaine → ADR-0012
+│   └── express_eligibility.py #   ExpressEligibilityRule, EligibilityCriteria : étiquette express_eligible → ADR-0012
 ├── abstractions/              # Ports (ABC) : OrderStore, OrderRepository, ModelRepository, ApiKeyStore, RateLimiter, ExperimentTracker
 ├── infrastructure/            # Adaptateurs concrets
 │   ├── sqlite/                #   SqliteOrderStore        → ADR-0001
@@ -77,7 +83,7 @@ src/express_delivery/
 scripts/train.py               # Composition root de l'entraînement : trace dans MLflow et publie une version
 scripts/create_api_key.py      # Génère une clé d'API et son entrée API_KEYS (empreinte)
 scripts/check_orders_source.py # Vérifie la connexion MongoDB et résume les commandes lues (ADR-0011)
-tests/                         # 125 tests (+2 d'intégration MongoDB) : contrat OpenAPI, sécurité, ML, MLflow, OrderRepository
+tests/                         # 164 tests (+2 d'intégration MongoDB) : contrat OpenAPI, sécurité, ML, MLflow, OrderRepository, règle d'éligibilité
 ```
 
 ## Correspondance notebook → application
@@ -112,6 +118,7 @@ tests/                         # 125 tests (+2 d'intégration MongoDB) : contrat
 - **Sécurité (séance 2)** : la politique d'accès (`Role.USER` sur `/v1/*`, sondes publiques) est déclarée une seule fois dans `create_app` ; les routes ne savent rien de l'authentification (S) ; changer de source de clés ou de limiteur = nouvelle implémentation d'un port (O, D).
 - **Entraînement (26/10, ADR-0007)** : une classe par étape (`PipelineFactory`, `TrainTestSplitter`, `ModelEvaluator`) orchestrées par `ModelTrainer`, qui reçoit tout au constructeur (D) ; le suivi passe par le port `ExperimentTracker` : MLflow en vrai, `NullExperimentTracker` ou une doublure en test (L, O).
 - **Source de données (29/10, ADR-0011)** : port de **lecture** `OrderRepository` (`get`, `get_all`) séparé de `OrderStore` (I) ; `MongoOrderRepository` interroge, `OrderDocumentMapper` convertit, `OrderRecordValidator` contrôle, `open_mongo_order_repository` gère la connexion (S) ; le dépôt reçoit la collection ouverte (D) ; les erreurs du pilote deviennent `OrderSourceError` pour ne pas exposer pymongo aux appelants.
+- **Données d'entraînement ERP (17/11, ADR-0012)** : `ErpOrderTranslator` (traduction), `ExpressEligibilityRule` (étiquette) et `ErpTrainingDataBuilder` (assemblage) ont chacun une seule raison de changer (S) ; les seuils métier sont dans `EligibilityCriteria`, remplaçables sans toucher la règle (O) ; `ModelTrainer`, l'API et `openapi.yml` ne changent pas ; `scripts/train.py` reste le seul endroit qui choisit la source (D).
 - **DRY** : la liste des variables n'existe qu'une fois (`domain/features.py`) et la conversion commande → DataFrame aussi (`ml/feature_frame.py`) ; **YAGNI** : pas de batch, model card ni Model Registry avant leur séance.
 
 ## Éléments à industrialiser (tableau de la cellule 63)

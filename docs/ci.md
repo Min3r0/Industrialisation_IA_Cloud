@@ -53,6 +53,8 @@ Résultats au 29/10/2026 : pylint `src scripts` 9,22/10 (seuil 9,0 ; seules des 
 
 Après l'ajout de `MongoOrderRepository` (29/10/2026, [journal](journal/2026-10-29-order-repository-mongodb.md)) : pylint `src scripts` 9,40/10, pylint `tests` 10/10, pytest 125 tests OK + 2 tests d'intégration ignorés en CI (`-m integration`, ils demandent `MONGO_TEST_URI`). `test.lock` régénéré : ajout de `pymongo`, `dnspython`, `mongomock`, `pytz`, `sentinels`, aucune autre version modifiée.
 
+Après l'entraînement sur les données ERP (17/11/2026, [ADR-0012](adr/ADR-0012-cible-express-regle-metier-erp.md)) : pytest 164 tests OK + 2 ignorés, pylint `src scripts` 9,45/10, pylint `tests` 10/10 ; aucune dépendance ajoutée.
+
 ## Seuil pylint
 
 Dans `pyproject.toml` :

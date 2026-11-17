@@ -91,7 +91,7 @@ L'API ne dépend pas de MLflow : elle charge toujours `artifacts/models/$MODEL_V
 
 ## Commandes de l'ERP (MongoDB, ADR-0011)
 
-Les commandes réelles sont lues, en lecture seule, dans la base analytique MongoDB via le port `OrderRepository` (`MongoOrderRepository`). Bases et simulateur ERP : `tp4-bdd.zip` (`docker compose -f docker-compose.erp.yml up --build`).
+Les commandes réelles sont lues, en lecture seule, dans la base analytique MongoDB via le port `OrderRepository` (`MongoOrderRepository`). Bases et simulateur ERP : `tp4-bdd.zip`, à extraire ; le `docker-compose.erp.yml` est dans le dossier `tp4/` (`cd tp4 && docker compose -f docker-compose.erp.yml up --build`). L'archive d'origine est incomplète, voir le [journal du 17/11](docs/journal/2026-11-17-donnees-erp-regle-metier.md).
 
 ```bash
 pip install -e ".[mongo]"                                       # pymongo (déjà inclus dans [train] et [dev])
@@ -101,6 +101,17 @@ MONGO_TEST_URI=mongodb://localhost:27017 python -m pytest -m integration        
 ```
 
 Chaque document est validé (types, bornes, modalités ERP, cohérence `order_date` / `day_of_week` / `weekend`) ; un document invalide est écarté et compté dans les logs.
+
+### Entraîner sur les commandes de l'ERP (ADR-0012)
+
+Les commandes ERP n'ont pas de cible `express_eligible` : elle est **dérivée par une règle métier** (stock, préparation, heure, poids, météo, distance selon la zone), après traduction des modalités ERP vers celles du domaine. Le contrat de l'API ne change pas.
+
+```bash
+MONGO_URI=mongodb://localhost:27017 python scripts/train.py --source erp --version 2.0.0
+MONGO_URI=mongodb://localhost:27017 python scripts/train.py --source erp --start 2025-01-01 --version 2.0.1
+```
+
+Sans `--source`, l'entraînement utilise toujours le jeu synthétique. Les métriques d'un modèle entraîné sur l'ERP mesurent la fidélité à la règle, pas la performance réelle en livraison (limites : [ADR-0012](docs/adr/ADR-0012-cible-express-regle-metier-erp.md)).
 
 ## Clés d'API (ADR-0006)
 
@@ -172,7 +183,7 @@ GitHub Actions vérifie chaque pull request vers `develop` et `main` ([`ci.yml`]
 | Job | Vérifie |
 |---|---|
 | Analyse statique (pylint) | `pylint src scripts` et `pylint tests` : aucune erreur ni alerte, note ≥ 9,0 (règles dans `pyproject.toml`) |
-| Tests (pytest) | les 125 tests (les 2 tests d'intégration MongoDB sont ignorés sans `MONGO_TEST_URI`) ; rapport JUnit en artefact |
+| Tests (pytest) | les 164 tests (les 2 tests d'intégration MongoDB sont ignorés sans `MONGO_TEST_URI`) ; rapport JUnit en artefact |
 | Image Docker | hadolint, puis `docker build --target test` (tests dans l'image) |
 
 À chaque **release GitHub publiée** (`vX.Y.Z` sur `main`), [`release.yml`](.github/workflows/release.yml) rejoue la CI, vérifie que le tag correspond à la version du code, démarre l'image pour la tester, la scanne avec Trivy puis la publie :
@@ -217,6 +228,7 @@ Détails et correspondance cellule du notebook → module : [`docs/architecture.
 | [0009](docs/adr/ADR-0009-conteneurisation-image-docker.md) | Conteneurisation : image Docker |
 | [0010](docs/adr/ADR-0010-integration-continue-github-actions.md) | Intégration continue et publication de l'image (GitHub Actions) |
 | [0011](docs/adr/ADR-0011-source-donnees-postgresql-mongodb.md) | Source des données de commandes : MongoDB (base analytique) |
+| [0012](docs/adr/ADR-0012-cible-express-regle-metier-erp.md) | Étiquette d'entraînement : règle métier dérivée des données de l'ERP |
 
 ## Contribuer
 
