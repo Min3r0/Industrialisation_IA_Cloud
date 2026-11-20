@@ -22,7 +22,6 @@ from pathlib import Path
 import pandas as pd
 import sklearn
 
-from express_delivery.abstractions.experiment_tracker import ExperimentTracker
 from express_delivery.abstractions.order_repository import OrderSourceError
 from express_delivery.config import MongoSettings, Settings
 from express_delivery.domain.express_eligibility import ExpressEligibilityRule
@@ -31,26 +30,12 @@ from express_delivery.domain.models import ModelMetadata
 from express_delivery.domain.order_record import OrderPeriod
 from express_delivery.domain.order_translation import ErpOrderTranslator
 from express_delivery.infrastructure.filesystem.model_repository import FileModelRepository
-from express_delivery.infrastructure.tracking.null_tracker import NullExperimentTracker
 from express_delivery.ml.dataset import clean_orders_data, generate_orders_dataset, validate_dataset
 from express_delivery.ml.erp_dataset import ErpTrainingDataBuilder
-from express_delivery.ml.evaluator import ModelEvaluator
 from express_delivery.ml.pipeline_factory import PipelineFactory
-from express_delivery.ml.splitter import TrainTestSplitter
-from express_delivery.ml.trainer import ModelTrainer
+from express_delivery.ml.training_setup import build_trainer, build_tracker
 
 logger = logging.getLogger("train")
-
-
-def build_tracker(settings: Settings, enabled: bool) -> ExperimentTracker:
-    if not enabled:
-        logger.warning("Suivi MLflow désactivé (--no-tracking).")
-        return NullExperimentTracker()
-    # Import paresseux voulu : MLflow n'est requis que si le suivi est activé (ADR-0007)
-    # pylint: disable-next=import-outside-toplevel
-    from express_delivery.infrastructure.tracking.mlflow_tracker import MlflowExperimentTracker
-
-    return MlflowExperimentTracker(settings.mlflow_tracking_uri, settings.mlflow_experiment)
 
 
 def load_synthetic_data(settings: Settings) -> pd.DataFrame:
@@ -68,15 +53,6 @@ def load_erp_data(period: OrderPeriod) -> pd.DataFrame:
         records = repository.get_all(period)
     builder = ErpTrainingDataBuilder(ErpOrderTranslator(), ExpressEligibilityRule())
     return builder.build(records)
-
-
-def build_trainer(settings: Settings, tracker: ExperimentTracker) -> ModelTrainer:
-    return ModelTrainer(
-        pipeline_factory=PipelineFactory(random_state=settings.random_seed),
-        splitter=TrainTestSplitter(test_size=0.20, random_state=settings.random_seed),
-        evaluator=ModelEvaluator(),
-        tracker=tracker,
-    )
 
 
 def main() -> int:

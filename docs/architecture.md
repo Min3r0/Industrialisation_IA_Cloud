@@ -83,7 +83,7 @@ src/express_delivery/
 scripts/train.py               # Composition root de l'entraînement : trace dans MLflow et publie une version
 scripts/create_api_key.py      # Génère une clé d'API et son entrée API_KEYS (empreinte)
 scripts/check_orders_source.py # Vérifie la connexion MongoDB et résume les commandes lues (ADR-0011)
-tests/                         # 164 tests (+2 d'intégration MongoDB) : contrat OpenAPI, sécurité, ML, MLflow, OrderRepository, règle d'éligibilité
+tests/                         # 174 tests (+2 d'intégration MongoDB) : contrat OpenAPI, sécurité, ML, MLflow, OrderRepository, règle d'éligibilité
 ```
 
 ## Correspondance notebook → application
@@ -119,6 +119,7 @@ tests/                         # 164 tests (+2 d'intégration MongoDB) : contrat
 - **Entraînement (26/10, ADR-0007)** : une classe par étape (`PipelineFactory`, `TrainTestSplitter`, `ModelEvaluator`) orchestrées par `ModelTrainer`, qui reçoit tout au constructeur (D) ; le suivi passe par le port `ExperimentTracker` : MLflow en vrai, `NullExperimentTracker` ou une doublure en test (L, O).
 - **Source de données (29/10, ADR-0011)** : port de **lecture** `OrderRepository` (`get`, `get_all`) séparé de `OrderStore` (I) ; `MongoOrderRepository` interroge, `OrderDocumentMapper` convertit, `OrderRecordValidator` contrôle, `open_mongo_order_repository` gère la connexion (S) ; le dépôt reçoit la collection ouverte (D) ; les erreurs du pilote deviennent `OrderSourceError` pour ne pas exposer pymongo aux appelants.
 - **Données d'entraînement ERP (17/11, ADR-0012)** : `ErpOrderTranslator` (traduction), `ExpressEligibilityRule` (étiquette) et `ErpTrainingDataBuilder` (assemblage) ont chacun une seule raison de changer (S) ; les seuils métier sont dans `EligibilityCriteria`, remplaçables sans toucher la règle (O) ; `ModelTrainer`, l'API et `openapi.yml` ne changent pas ; `scripts/train.py` reste le seul endroit qui choisit la source (D).
+- **Orchestration (20/11, ADR-0013)** : `RetrainingPipeline` ne connaît ni MongoDB ni scikit-learn : source, publication, vérification d'existence et horloge sont injectées (D) ; une seule raison de changer par étape (S) ; `training_setup.py` partage la construction de l'entraîneur avec `train.py` (DRY).
 - **DRY** : la liste des variables n'existe qu'une fois (`domain/features.py`) et la conversion commande → DataFrame aussi (`ml/feature_frame.py`) ; **YAGNI** : pas de batch, model card ni Model Registry avant leur séance.
 
 ## Éléments à industrialiser (tableau de la cellule 63)

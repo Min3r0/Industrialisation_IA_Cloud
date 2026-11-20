@@ -111,7 +111,16 @@ MONGO_URI=mongodb://localhost:27017 python scripts/train.py --source erp --versi
 MONGO_URI=mongodb://localhost:27017 python scripts/train.py --source erp --start 2025-01-01 --version 2.0.1
 ```
 
-Sans `--source`, l'entraînement utilise toujours le jeu synthétique. Les métriques d'un modèle entraîné sur l'ERP mesurent la fidélité à la règle, pas la performance réelle en livraison (limites : [ADR-0012](docs/adr/ADR-0012-cible-express-regle-metier-erp.md)).
+Sans `--source`, l'entraînement utilise toujours le jeu synthétique.
+
+### Réentraînement planifié (ADR-0013)
+
+```bash
+MONGO_URI=mongodb://localhost:27017 python scripts/retrain.py                  # une exécution : publie erp-AAAAMMJJ si assez de commandes récentes
+MONGO_URI=mongodb://localhost:27017 python scripts/retrain.py --every-hours 24   # boucle quotidienne
+```
+
+Le réentraînement est sauté si la fenêtre de 30 jours contient moins de 500 commandes valides, et il n'est pas refait si la version du jour existe déjà. Les métriques d'un modèle entraîné sur l'ERP mesurent la fidélité à la règle, pas la performance réelle en livraison (limites : [ADR-0012](docs/adr/ADR-0012-cible-express-regle-metier-erp.md)).
 
 ## Clés d'API (ADR-0006)
 
@@ -183,7 +192,7 @@ GitHub Actions vérifie chaque pull request vers `develop` et `main` ([`ci.yml`]
 | Job | Vérifie |
 |---|---|
 | Analyse statique (pylint) | `pylint src scripts` et `pylint tests` : aucune erreur ni alerte, note ≥ 9,0 (règles dans `pyproject.toml`) |
-| Tests (pytest) | les 164 tests (les 2 tests d'intégration MongoDB sont ignorés sans `MONGO_TEST_URI`) ; rapport JUnit en artefact |
+| Tests (pytest) | les 174 tests (les 2 tests d'intégration MongoDB sont ignorés sans `MONGO_TEST_URI`) ; rapport JUnit en artefact |
 | Image Docker | hadolint, puis `docker build --target test` (tests dans l'image) |
 
 À chaque **release GitHub publiée** (`vX.Y.Z` sur `main`), [`release.yml`](.github/workflows/release.yml) rejoue la CI, vérifie que le tag correspond à la version du code, démarre l'image pour la tester, la scanne avec Trivy puis la publie :
@@ -229,6 +238,7 @@ Détails et correspondance cellule du notebook → module : [`docs/architecture.
 | [0010](docs/adr/ADR-0010-integration-continue-github-actions.md) | Intégration continue et publication de l'image (GitHub Actions) |
 | [0011](docs/adr/ADR-0011-source-donnees-postgresql-mongodb.md) | Source des données de commandes : MongoDB (base analytique) |
 | [0012](docs/adr/ADR-0012-cible-express-regle-metier-erp.md) | Étiquette d'entraînement : règle métier dérivée des données de l'ERP |
+| [0013](docs/adr/ADR-0013-orchestration-reentrainement.md) | Orchestration du réentraînement périodique |
 
 ## Contribuer
 
