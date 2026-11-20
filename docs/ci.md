@@ -55,6 +55,8 @@ Après l'ajout de `MongoOrderRepository` (29/10/2026, [journal](journal/2026-10-
 
 Après l'entraînement sur les données ERP (17/11/2026, [ADR-0012](adr/ADR-0012-cible-express-regle-metier-erp.md)) : pytest 164 tests OK + 2 ignorés, pylint `src scripts` 9,45/10, pylint `tests` 10/10 ; aucune dépendance ajoutée.
 
+Après l'orchestrateur de réentraînement (20/11/2026, [ADR-0013](adr/ADR-0013-orchestration-reentrainement.md)) : pytest 174 tests OK + 2 ignorés. Le stage `test` du `Dockerfile` copie désormais `scripts/` (les tests importent les composition roots).
+
 ## Seuil pylint
 
 Dans `pyproject.toml` :
